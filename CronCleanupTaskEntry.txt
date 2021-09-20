@@ -1,0 +1,1 @@
+0 0 * * * find /mnt/storage/Zmodo/* -name "*.mp4" -mtime +31 -exec rm {} \;
