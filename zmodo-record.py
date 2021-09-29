@@ -114,7 +114,7 @@ def start_record_process(deviceName, deviceId):
 
     # Start recording process
     print("Starting ffmpeg for device {name} with id={id}".format(name=deviceName, id=deviceId))
-    command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy -map 0 -f segment -strftime 1 -segment_time 300 -segment_format mp4 \"{folder}/{name}_%Y-%m-%d_%H-%M-%S.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
+    command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy -map 0 -f segment -reset_timestamps 1 -strftime 1 -segment_time 300 -segment_format mp4 \"{folder}/{name}_%Y-%m-%d_%H-%M-%S.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
     # command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy \"{folder}/{name}_`date +%Y-%m-%d_%H-%M-%S`.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
     print("Command is: " + command)
     PROC_LIST[deviceId] = subprocess.Popen(command, shell=True)
