@@ -5,7 +5,7 @@ import hashlib
 import requests
 import pathlib
 from signal import signal, SIGTERM, SIGHUP
-from time import sleep, time
+import time
 
 # Global variables
 USERNAME = os.environ['USERNAME']
@@ -179,4 +179,4 @@ if(TOKEN != None):
 
         while(True):
             check_processes()
-            sleep(10)
+            time.sleep(10)
