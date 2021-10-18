@@ -11,6 +11,7 @@ import time
 USERNAME = os.environ['USERNAME']
 PASSWORD = os.environ['PASSWORD']
 ROOT_FOLDER = "/zmodo_output"
+MAX_PROC_RUNTIME_SEC = 60
 
 TOKEN = None
 DEVICES = None
@@ -124,9 +125,12 @@ def start_record_process(deviceName, deviceId):
 def check_processes():
     global PROC_LIST
     global DEVICES
+    global MAX_PROC_RUNTIME_SEC
 
     for proc in PROC_LIST:
         device_id = proc
+        # Find device info based on ID
+        device = next((x for x in DEVICES if x["id"] == device_id), None)
         process = PROC_LIST[device_id]
         processRunTime = current_milli_time() - PROC_TIMERS[device_id]
 
@@ -134,9 +138,6 @@ def check_processes():
 
         # Check if process is dead
         if(process.poll() != None):
-            # Find device info based on ID
-            device = next((x for x in DEVICES if x["id"] == device_id), None)
-
             print("Process for " + device_id + " stopped. Getting new token and restarting.")
 
             if(not check_API_token()):
@@ -144,7 +145,7 @@ def check_processes():
             start_record_process(device["name"], device_id)
         else:
             # If the process has been running for over 5min
-            if(processRunTime >= (60000 * 5)):
+            if(processRunTime >= (1000 * MAX_PROC_RUNTIME_SEC)):
                 print("Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
                 # Kill the process
                 process.terminate()
