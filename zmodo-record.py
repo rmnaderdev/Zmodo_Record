@@ -5,7 +5,7 @@ import hashlib
 import requests
 import pathlib
 from signal import signal, SIGTERM, SIGHUP
-from time import sleep
+from time import sleep, time
 
 # Global variables
 USERNAME = os.environ['USERNAME']
@@ -18,7 +18,10 @@ HEADERS={"referer": "https://user.zmodo.com/", \
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"}
 
 PROC_LIST = {}
+PROC_TIMERS = {}
 
+def current_milli_time():
+    return round(time.time() * 1000)
 
 def safe_exit(signum=None, frame=None):
     global PROC_LIST
@@ -115,9 +118,8 @@ def start_record_process(deviceName, deviceId):
     # Start recording process
     print("Starting ffmpeg for device {name} with id={id}".format(name=deviceName, id=deviceId))
     command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy -map 0 -f segment -reset_timestamps 1 -strftime 1 -segment_time 300 -segment_format mp4 \"{folder}/{name}_%Y-%m-%d_%H-%M-%S.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
-    # command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy \"{folder}/{name}_`date +%Y-%m-%d_%H-%M-%S`.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
-    print("Command is: " + command)
     PROC_LIST[deviceId] = subprocess.Popen(command, shell=True)
+    PROC_TIMERS[deviceId] = current_milli_time()
 
 def check_processes():
     global PROC_LIST
@@ -126,16 +128,30 @@ def check_processes():
     for proc in PROC_LIST:
         device_id = proc
         process = PROC_LIST[device_id]
+        processRunTime = current_milli_time() - PROC_TIMERS[device_id]
+
+        print("Process for " + device_id + " running for " + str(processRunTime / 1000) + "sec.")
 
         # Check if process is dead
         if(process.poll() != None):
+            # Find device info based on ID
             device = next((x for x in DEVICES if x["id"] == device_id), None)
 
             print("Process for " + device_id + " stopped. Getting new token and restarting.")
-            
+
             if(not check_API_token()):
                 refresh_API_token()
             start_record_process(device["name"], device_id)
+        else:
+            # If the process has been running for over 5min
+            if(processRunTime >= (60000 * 5)):
+                print("Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
+                # Kill the process
+                process.terminate()
+                # Refresh token
+                refresh_API_token()
+                # Start record process
+                start_record_process(device["name"], device_id)
 
 # Is ffmpeg installed on the system?
 from shutil import which
