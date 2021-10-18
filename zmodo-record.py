@@ -1,10 +1,9 @@
 import os
+from signal import signal, SIGTERM, SIGHUP, SIGINT
 import subprocess
-import psutil
 import hashlib
 import requests
 import pathlib
-from signal import signal, SIGTERM, SIGHUP
 import time
 
 # Global variables
@@ -31,17 +30,9 @@ def safe_exit(signum=None, frame=None):
         device_id = proc
         process = PROC_LIST[device_id]
 
-        process = psutil.Process(process.pid)
-        print(process)
-        # for proc in process.children(recursive=True):
-        #     print("\t", proc)
-        #     proc.terminate()
-        #     proc.wait()
-        process.terminate()
-        process.wait()
+        os.killpg(os.getpgid(process.pid), SIGTERM)
 
-    print("Exiting")
-    # writeSettings()
+    print("Exiting. Goodbye!")
     exit(1)
 
 def check_API_token():
@@ -119,7 +110,12 @@ def start_record_process(deviceName, deviceId):
     # Start recording process
     print("Starting ffmpeg for device {name} with id={id}".format(name=deviceName, id=deviceId))
     command = "ffmpeg -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy -map 0 -f segment -reset_timestamps 1 -strftime 1 -segment_time 300 -segment_format mp4 \"{folder}/{name}_%Y-%m-%d_%H-%M-%S.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
-    PROC_LIST[deviceId] = subprocess.Popen(command, shell=True)
+    print("FFMPEG Command: " + command)
+
+    # Start process
+    PROC_LIST[deviceId] = subprocess.Popen(command, shell=True, preexec_fn=os.setsid)
+
+    # Set process start time
     PROC_TIMERS[deviceId] = current_milli_time()
 
 def check_processes():
@@ -134,21 +130,23 @@ def check_processes():
         process = PROC_LIST[device_id]
         processRunTime = current_milli_time() - PROC_TIMERS[device_id]
 
-        print("Process for " + device_id + " running for " + str(processRunTime / 1000) + "sec.")
+        print("[" + str(process.pid) + "] Process for " + device_id + " running for " + str(processRunTime / 1000) + "sec.")
 
         # Check if process is dead
         if(process.poll() != None):
-            print("Process for " + device_id + " stopped. Getting new token and restarting.")
+            print("[" + str(process.pid) + "] Process for " + device_id + " stopped. Getting new token and restarting.")
 
             if(not check_API_token()):
                 refresh_API_token()
             start_record_process(device["name"], device_id)
         else:
-            # If the process has been running for over 5min
+            # If the process has been running for over x sec
             if(processRunTime >= (1000 * MAX_PROC_RUNTIME_SEC)):
-                print("Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
+                print("[" + str(process.pid) + "] Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
                 # Kill the process
-                process.terminate()
+                os.killpg(os.getpgid(process.pid), SIGINT)
+                process.wait()
+                print("[" + str(process.pid) + "] Process for " + device_id + " has been terminated.")
                 # Refresh token
                 refresh_API_token()
                 # Start record process
@@ -181,3 +179,5 @@ if(TOKEN != None):
         while(True):
             check_processes()
             time.sleep(10)
+else:
+    print("Failed to get token.")
