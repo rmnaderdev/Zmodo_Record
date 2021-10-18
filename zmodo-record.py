@@ -10,7 +10,9 @@ import time
 USERNAME = os.environ['USERNAME']
 PASSWORD = os.environ['PASSWORD']
 ROOT_FOLDER = "/zmodo_output"
-MAX_PROC_RUNTIME_SEC = 60
+
+# Force refresh token after 4 hours
+MAX_PROC_RUNTIME_SEC = (3600 * 4)
 
 TOKEN = None
 DEVICES = None
@@ -129,8 +131,6 @@ def check_processes():
         device = next((x for x in DEVICES if x["id"] == device_id), None)
         process = PROC_LIST[device_id]
         processRunTime = current_milli_time() - PROC_TIMERS[device_id]
-
-        print("[" + str(process.pid) + "] Process for " + device_id + " running for " + str(processRunTime / 1000) + "sec.")
 
         # Check if process is dead
         if(process.poll() != None):
