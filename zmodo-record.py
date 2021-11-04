@@ -125,6 +125,8 @@ def check_processes():
     global DEVICES
     global MAX_PROC_RUNTIME_SEC
 
+    hadNetworkFail = False
+
     for proc in PROC_LIST:
         device_id = proc
         # Find device info based on ID
@@ -132,13 +134,20 @@ def check_processes():
         process = PROC_LIST[device_id]
         processRunTime = current_milli_time() - PROC_TIMERS[device_id]
 
+        if(hadNetworkFail):
+            break
+
         # Check if process is dead
         if(process.poll() != None):
             print("[" + str(process.pid) + "] Process for " + device_id + " stopped. Getting new token and restarting.")
 
-            if(not check_API_token()):
-                refresh_API_token()
-            start_record_process(device["name"], device_id)
+            try:
+                if(not check_API_token()):
+                    refresh_API_token()
+                start_record_process(device["name"], device_id)
+            except requests.ConnectionError:
+                print("[" + str(process.pid) + "] Process for " + device_id + " failed to call API due to a network failure. Retrying in 10 seconds.")
+                hadNetworkFail = True
         else:
             # If the process has been running for over x sec
             if(processRunTime >= (1000 * MAX_PROC_RUNTIME_SEC)):
