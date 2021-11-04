@@ -18,8 +18,6 @@ This will start the python process which will download and encode the cloud stre
 
 
 ## Known Issues
-* When one of the Zmodo devices has a bad network connection, ffmpeg tends to loose connection a lot which causes some video file data integrity issues. I am not sure what to do about this. Any help is appreciated.
-* The process handling code needs to be looked at and improved.
-* The mp4 files are encoded in linked file segments. When trying to play them back, I have noticed that the seek bar does not always work correctly. Any help with this issue is much appreciated. 
+* When killing the Python process, any video segment that is currently being written to does not get properly closed (the last video file segment is corrupt) 
 
 If you have any issues, please open an issue in this repo.
