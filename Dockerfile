@@ -4,7 +4,8 @@ RUN apt-get -y update
 RUN apt-get install -y ffmpeg
 
 FROM base as deps
-RUN pip install requests
+ADD requirements.txt /
+RUN pip install -r requirements.txt
 
 FROM deps as final
 ADD zmodo-record.py /
