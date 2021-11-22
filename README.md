@@ -16,7 +16,7 @@ Run `docker build -t zmodo-proxy -f Proxy_Dockerfile .` from the project root di
 ## To run the docker container
 
 ### Zmodo Record
-Execute `docker run -d -v <MY_VIDEO_STORAGE_DIR>:/zmodo_output -e USERNAME='<MY_ZMODO_CLOUD_USERNAME>' -e PASSWORD='<MY_ZMODO_CLOUD_PASSWORD>' zmodo-record`
+Execute `docker run -d -v <MY_VIDEO_STORAGE_DIR>:/zmodo_output -e USERNAME='<MY_ZMODO_CLOUD_USERNAME>' -e PASSWORD='<MY_ZMODO_CLOUD_PASSWORD>' -e RTSP_SERVER='MY_RTSP_SERVER' zmodo-record`
 
 ### Zmodo Proxy
 Execute `docker run -d -e USERNAME='<MY_ZMODO_CLOUD_USERNAME>' -e PASSWORD='<MY_ZMODO_CLOUD_PASSWORD>'  zmodo-proxy`
