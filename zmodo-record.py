@@ -5,6 +5,10 @@ import hashlib
 import requests
 import pathlib
 import time
+import logging
+
+# Setup logging
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 
 # Global variables
 USERNAME = os.environ['USERNAME']
@@ -34,7 +38,7 @@ def safe_exit(signum=None, frame=None):
 
         os.killpg(os.getpgid(process.pid), SIGTERM)
 
-    print("Exiting. Goodbye!")
+    logging.info("Exiting. Goodbye!")
     exit(1)
 
 def check_API_token():
@@ -47,10 +51,10 @@ def check_API_token():
         if(data["result"] == "ok"):
             return True
         else:
-            print("Token is expired")
+            logging.info("Token is expired")
             return False
     else:
-        print("Failed to check token (non 200 code), assuming it is bad.")
+        logging.info("Failed to check token (non 200 code), assuming it is bad.")
         return False
 
 def refresh_API_token():
@@ -61,7 +65,7 @@ def refresh_API_token():
 
     password = hashlib.md5(PASSWORD.encode('utf-8')).hexdigest()
 
-    print("Refreshing token")
+    logging.debug("Refreshing token")
 
     res = requests.post("https://user.zmodo.com/api/login", \
         json={"username": USERNAME, "password": password}, headers=HEADERS)
@@ -71,18 +75,18 @@ def refresh_API_token():
 
         if(data["result"] == "ok"):
             TOKEN = data["data"]
-            print("Auth success!")
+            logging.info("Auth success!")
         else:
-            print("Auth fail. " + data["error"])
+            logging.info("Auth fail. " + data["error"])
     else:
-        print("Auth fail. Non 200 return code.")
+        logging.info("Auth fail. Non 200 return code.")
 
 def refresh_devices():
     global TOKEN
     global DEVICES
     global HEADERS
 
-    print("Refreshing devices")
+    logging.info("Refreshing devices")
     
     res = requests.get("https://user.zmodo.com/api/devices", cookies={"tokenid": TOKEN}, headers=HEADERS)
     
@@ -91,12 +95,12 @@ def refresh_devices():
 
         if(data["result"] == "ok"):
             DEVICES = list(map(lambda dev: { "name": dev["name"], "id": dev["physical_id"] }, data["data"]))
-            print("Got device list:")
-            print(DEVICES)
+            logging.debug("Got device list:")
+            logging.debug(DEVICES)
         else:
-            print("Error getting devices. " + data["error"])
+            logging.info("Error getting devices. " + data["error"])
     else:
-        print("Get devices fail. Non 200 return code.")
+        logging.info("Get devices fail. Non 200 return code.")
 
 def start_record_process(deviceName, deviceId):
     global PROC_LIST
@@ -110,9 +114,9 @@ def start_record_process(deviceName, deviceId):
     pathlib.Path(deviceFolder).mkdir(parents=True, exist_ok=True)
 
     # Start recording process
-    print("Starting ffmpeg for device {name} with id={id}".format(name=deviceName, id=deviceId))
+    logging.info("Starting ffmpeg for device {name} with id={id}".format(name=deviceName, id=deviceId))
     command = "ffmpeg -timeout 5000000 -hide_banner -loglevel error -i \"https://flv.meshare.com/live?devid={dev_id}&token={token}&media_type=2&channel=0&rn=1623373509644\" -c copy -an -map 0 -f segment -reset_timestamps 1 -strftime 1 -segment_time 300 -segment_format mp4 \"{folder}/{name}_%Y-%m-%d_%H-%M-%S.mp4\"".format(token=TOKEN, name=deviceName, dev_id=deviceId, folder=deviceFolder)
-    print("FFMPEG Command: " + command)
+    logging.debug("FFMPEG Command: " + command)
 
     # Start process
     PROC_LIST[deviceId] = subprocess.Popen(command, shell=True, preexec_fn=os.setsid)
@@ -139,23 +143,23 @@ def check_processes():
 
         # Check if process is dead
         if(process.poll() != None):
-            print("[" + str(process.pid) + "] Process for " + device_id + " stopped. Getting new token and restarting.")
+            logging.info("[" + str(process.pid) + "] Process for " + device_id + " stopped. Getting new token and restarting.")
 
             try:
                 if(not check_API_token()):
                     refresh_API_token()
                 start_record_process(device["name"], device_id)
             except requests.ConnectionError:
-                print("[" + str(process.pid) + "] Process for " + device_id + " failed to call API due to a network failure. Retrying in 10 seconds.")
+                logging.info("[" + str(process.pid) + "] Process for " + device_id + " failed to call API due to a network failure. Retrying in 10 seconds.")
                 hadNetworkFail = True
         else:
             # If the process has been running for over x sec
             if(processRunTime >= (1000 * MAX_PROC_RUNTIME_SEC)):
-                print("[" + str(process.pid) + "] Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
+                logging.info("[" + str(process.pid) + "] Process for " + device_id + " has expired. Stopping the process, getting new token, and restarting.")
                 # Kill the process
                 os.killpg(os.getpgid(process.pid), SIGINT)
                 process.wait()
-                print("[" + str(process.pid) + "] Process for " + device_id + " has been terminated.")
+                logging.info("[" + str(process.pid) + "] Process for " + device_id + " has been terminated.")
                 # Refresh token
                 refresh_API_token()
                 # Start record process
@@ -164,7 +168,7 @@ def check_processes():
 # Is ffmpeg installed on the system?
 from shutil import which
 if(which("ffmpeg") is None):
-    print("ffmpeg must be installed to use this program. Please install ffmpeg and rerun this program.")
+    logging.error("ffmpeg must be installed to use this program. Please install ffmpeg and rerun this program.")
     quit()
 
 
@@ -179,14 +183,14 @@ if(TOKEN != None):
 
     if(DEVICES != None):
         # Start processes initially
-        print("Starting ffmpeg processes")
+        logging.info("Starting ffmpeg processes")
         for device in DEVICES:
             start_record_process(device["name"], device["id"])
         
-        print("Listening for proccess changes...")
+        logging.info("Listening for proccess changes...")
 
         while(True):
             check_processes()
             time.sleep(10)
 else:
-    print("Failed to get token.")
+    logging.error("Failed to get token.")
